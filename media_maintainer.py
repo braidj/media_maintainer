@@ -1,14 +1,39 @@
+import datetime
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
-searchExt = ".ts"
+searchExt = ".vob"
 convertTo = ".mp4"
 hardCodedPath = os.sep.join([r"Z:\Movies"])
 workingDir = os.sep.join([r"C:\Users\braid\Downloads\working"])
 localConver = False
 softDelete = True
+
+def preRunCleanUp():
+
+    if sys.platform.startswith('linux'):
+        os.system('clear')
+    elif sys.platform.startswith('win32'):
+        os.system('cls')
+
+    ct = datetime.datetime.now()
+    print(f"Run started @: {ct}")
+
+def cleanEmptyDir():
+
+    for dir in next(os.walk(hardCodedPath))[1]:
+
+        fullDir = f"{hardCodedPath}{os.sep}{dir}"
+        if not os.listdir(fullDir):
+            os.rmdir(fullDir)
+            print(f"Removing -{fullDir}")
+        else:
+            print(f"NOT EMPTY -{fullDir}")
+            for f in os.listdir(fullDir):
+                print(f"\t{f}")
 
 def moveFile(filePath):
 
@@ -38,16 +63,16 @@ def getFilePathsByType(extension = searchExt,displayResults = True):
     if displayResults:
 
         for path in Path(hardCodedPath).rglob(filter):
-            print(path)
+            print(f"Found {path}")
             #moveFile(path)
 
     all_files = [str(x) for x in Path(hardCodedPath).rglob(filter)]
 
     return all_files
 
-def convertFile(orginalFormat,newFormat):
+def convertFile(originalFormat,newFormat):
 
-    origDir, origExt = os.path.splitext(orginalFormat)
+    origDir, origExt = os.path.splitext(originalFormat)
     newDir, newExt = os.path.splitext(newFormat)
 
     if origExt == newExt:
@@ -55,19 +80,28 @@ def convertFile(orginalFormat,newFormat):
     elif origDir != newDir:
          print("need to move file first")
     else:
-        print("conversion needed")
+        print(f"Conversion needed {originalFormat} to {newFormat}")
         if localConver:
             print("need to copy down first")
-        #subprocess.run(['ffmpeg','-i',original,converted])
+            #subprocess.run(['ffmpeg','-i',original,converted])
 
 if __name__ == "__main__":
 
-    result = getFilePathsByType(searchExt,True)
+    preRunCleanUp()
+    cleanEmptyDir()
 
-    if  len(result) > 0:
-        print(f"First one is: {result[1]}")
-        original,converted = getFilePairs(result[1])
-        convertFile(original,converted)
+    results = getFilePathsByType(searchExt,True)
 
+    if  len(results) > 0:
 
-    print(f"Complete for {len(result)} files")
+        for f in results:
+            original,converted = getFilePairs(f)
+            convertFile(original,converted)
+
+    #os.system("shutdown /s /t 1")
+    #TODO copy file to working directory then copy back
+    #TODO clean up after conversion
+    #TODO limit nos of conversions
+    #TODO check converted fiels does n't already exist
+    print("Run complete")
+
