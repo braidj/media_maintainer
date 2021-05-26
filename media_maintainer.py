@@ -4,8 +4,33 @@ import shutil
 import subprocess
 import sys
 import win32api
+import logging
+
 
 from pathlib import Path
+
+class Status():
+    def __init__(self,loggingDir):
+        tds = datetime.datetime.now()
+        logFile = tds.strftime("%Y%m%d_%H%M%S")
+        fullLogPath = f"{loggingDir}{os.sep}{logFile}.log"
+        self.logger = logging.getLogger('mylogger')
+        self.logger.setLevel(logging.INFO) #set logger level
+        handler = logging.FileHandler(fullLogPath)
+        formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')# create a logging format
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        self.logger.info(f"Conversion run started for {MAX_NOS} files of type {convertTo} in {hardCodedPath}")
+
+    def record(self,message,logAsWell=True):
+
+        ct = datetime.datetime.now()
+
+        if logAsWell:
+            self.logger.info(message)
+
+        print(ct,message)
+
 
 class Direction():
     def __init__(self,debug=False):
@@ -16,6 +41,9 @@ class Direction():
 
     def transfer(self):
         return self.state
+    
+    def local(self): # Startign start for local file conversion
+        self.state = 'down'
 
     def next(self):
 
@@ -31,18 +59,16 @@ class Direction():
         if self.debug:
             print(f"Moved from {currentState} to {newState}")
 
-
 searchExt = ".ts"
 convertTo = ".mp4"
 hardCodedPath = os.sep.join([r"Z:\Movies"])
 workingDir = os.sep.join([r"D:\Video\working"])
+loggingDir = workingDir
 localConver = True
-softDelete = True
-execFlag = True
 MAX_NOS = 8
 debugFlag = False
 fileDirection = Direction(debugFlag)
-shutDownAfter = True
+shutDownAfter = False
 
 def checkConversionRequired(convertedFilePath):
 
@@ -70,7 +96,7 @@ def preRunCleanUp():
         os.system('cls')
 
     ct = datetime.datetime.now()
-    print(f"Run started @: {ct}")
+    sysStatus.record("Run started")
 
 def cleanEmptyDir():
 
@@ -78,20 +104,19 @@ def cleanEmptyDir():
 
         fullDir = f"{hardCodedPath}{os.sep}{dir}"
         if not os.listdir(fullDir):
-            if execFlag:
-                os.rmdir(fullDir)
-            print(f"Removing -{fullDir}")
+            os.rmdir(fullDir)
+            sysStatus.record(f"Removing -{fullDir}")
         else:
-            print(f"NOT EMPTY -{fullDir}")
+            sysStatus.record(f"NOT EMPTY -{fullDir}")
             for f in os.listdir(fullDir):
-                print(f"\t{f}")
+                sysStatus.record(f"\t{f}")
 
 def moveFile(sourceFile):
 
     moveRequired = True
     fileName = os.path.basename(sourceFile)
     if debugFlag:
-        print(f"Receiving {sourceFile} with direction of {fileDirection.transfer()}")
+        sysStatus.record(f"Receiving {sourceFile} with direction of {fileDirection.transfer()}")
 
     direction = fileDirection.transfer()
 
@@ -107,10 +132,10 @@ def moveFile(sourceFile):
 
     if moveRequired:
         try:
-            print(f"Download to {toFile} in progress")
+            sysStatus.record(f"Download to {toFile} in progress")
             shutil.move(sourceFile,toFile)
             if debugFlag:
-                print(f"{sourceFile} moved to {toFile}")
+                sysStatus.record(f"{sourceFile} moved to {toFile}")
         except Exception as error:
             print(f"Error occurred in moveFile function: {error}\n {sourceFile} to {toFile}")
 
@@ -155,17 +180,24 @@ def prepareConversion(fullFilePath):
     # check if converted file already exists in current location
     # check if converted file already exists in working location
 
+    fromFile = fullFilePath
+    
     if localConver: 
         fromFile = moveFile(fullFilePath)
-        toFile = getConversionName(fromFile)
-        print(f"Will attempt to convert {fromFile} to {toFile}")
-        conversion(fromFile,toFile)
+    
+    toFile = getConversionName(fromFile)
 
+    sysStatus.record(f"Will attempt to convert {fromFile} to {toFile}")
+    conversion(fromFile,toFile)
+
+    finalFile = toFile
+
+    if localConver: 
         fileDirection.next()
-        returnFile = moveFile(toFile)
+        finalFile = moveFile(toFile)
         fileDirection.next()
-        
-        print(f"Conversion resulted in {returnFile}")
+
+    sysStatus.record(f"Conversion resulted in {finalFile}")
 
 def conversion(sourceFile,to):
 
@@ -185,48 +217,39 @@ def conversion(sourceFile,to):
             proceed=False
 
     if proceed:
-        subprocess.run(['ffmpeg','-i',sourceFile,to,'-c','h264','-preset','ultrafast'])
-
-    #             subprocess.run(['ffmpeg','-i',original,converted])
-    #             #subprocess.run(['ffmpeg','-i',original,converted,'-c','h264','-preset','ultrafast'])
-
-
+        
+        subprocess.run(['ffmpeg','-i',sourceFile,to])
 
 if __name__ == "__main__":
-
+  
+    sysStatus = Status(workingDir)
     preRunCleanUp()
     #cleanEmptyDir()
 
-    if localConver:
-        fileDirection.next()
-
     results = getFilePathsByType(searchExt)
+    sysStatus.record(f"Only {len(results)} match the search, with the batch limit set to {MAX_NOS}")
 
     if  len(results) > 0:
-        times = 1
+        times = 0
         for f in results:
+            
             if times < MAX_NOS:
+                if localConver:
+                    fileDirection.local()
+
                 prepareConversion(f)
                 times += 1
-                #win32api.MessageBox(0, 'hello', 'Conversion completed', 0x00001000) 
-               
 
     #os.system("shutdown /s /t 1")
-    #TODO limit nos of conversions
-    #TODO add timer function
+    #TODO logic needs to be tested for a batch run
     #TODO check free space before each run
-    #TODO Handle this type of logic error:
-#     Download to Z:\Movies\Amy 2015.mp4 in progress
-# Conversion resulted in Z:\Movies\Amy 2015.mp4
-# (.venv) PS D:\dev\python\media_maintainer> & d:/dev/python/.venv/Scripts/python.exe d:/dev/python/media_maintainer/media_maintainer.py
-# Download to D:\Video\working\Timeline.ts in progress
-# Will attempt to convert D:\Video\working\Timeline.ts to D:\Video\working\Timeline.mp4
-# Conversion not required as Z:\Movies\Timeline.mp4 already exists
-# Download to Z:\Movies\Timeline.mp4 in progress
-# Error occurred in moveFile function: [Errno 2] No such file or directory: 'D:\\Video\\working\\Timeline.mp4'
-#  D:\Video\working\Timeline.mp4 to Z:\Movies\Timeline.mp4
-# Conversion resulted in Z:\Movies\Timeline.mp4
-    print("Run complete")
+    #TODO Check file BEFORE conversion
+    #TODO Write logging to a web page ?
+    #TODO Add biggest files first /sort by size
+    #TODO specific file processing
+
+    sysStatus.record("Run complete")
+
     if shutDownAfter:
         os.system('shutdown -s')
     
