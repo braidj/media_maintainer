@@ -16,6 +16,15 @@ class Timer:
     logger: Any = print
     _start_time: Any = field(default=None, init=False, repr=False)
 
+    def __enter__(self):
+        """Start a new timer as a context manager"""
+        self.start()
+        return self
+
+    def __exit__(self, *exc_info):
+        """Stop the context manager timer"""
+        self.stop()
+
     def __post_init__(self):
         """Initialization: add timer to dict of timers"""
         if self.name:
@@ -51,21 +60,18 @@ if __name__ == "__main__":
     # combine and convert into mp4 in one step
 
     t = Timer("upload")
-    t.start()
-    time.sleep(1)
-    t.stop()
+    with t:
+        time.sleep(1)
+         
+    with t:
+        time.sleep(2)
 
-    t.start()
-    time.sleep(2)
-    t.stop()
+    with t: 
+        time.sleep(1)
 
-    t.start()
-    time.sleep(1)
-    t.stop()
+    with t:
+        t = Timer("download")
+        time.sleep(2)
 
-    t = Timer("download")
-    t.start()
-    time.sleep(2)
-    t.stop()
 
     print(t.timers)
