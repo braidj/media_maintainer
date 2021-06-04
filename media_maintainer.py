@@ -3,11 +3,113 @@ import os
 import shutil
 import subprocess
 import sys
-import win32api
 import logging
-
-
+import pathlib
 from pathlib import Path
+    #os.system("shutdown /s /t 1")
+    #TOOD Unit tests on core functions
+    #TODO check free space before each run
+    #TODO Check file BEFORE conversion
+    #TODO Write logging to a web page ?
+    #TODO Add biggest files first /sort by size
+    #TODO Write original and new size to the log file
+
+class Search():
+    def __init__(self,searchDir,workingDir,searchFor,logger,convertToExt=".mp4",batchSize = 10,localConversion = True, shutDownAfter = False,DebugOn=False):
+
+        self.searchDir = searchDir
+        self._workingDir = workingDir
+        self._searchFor = searchFor
+        self._convertToExt = convertToExt
+        self.batchSize = batchSize
+        #self.localConversion = localConversion
+        self.shutDownAfter = shutDownAfter
+        self.log = logger
+
+        if len(self._searchFor) == 3:
+            self._convertFromExt = self._searchFor
+            self._filterCriteria = f"*{self._convertFromExt}"
+        else:
+            self._convertFromExt = pathlib.Path(searchFor).suffix
+            self._filterCriteria = searchFor
+
+    @property
+    def workingDir(self):
+        return self._workingDir
+
+    @property
+    def convertToExt(self):
+        return self._convertToExt
+
+    @property
+    def filterCriteria(self):
+        return self._filterCriteria
+
+    @filterCriteria.setter
+    def filterCriteria(self,value):
+        self._filterCriteria = value
+    
+
+    def findFiles(self):
+        """Returns a list of all files matching (a specified file type)"""
+
+        filter = self.filterCriteria
+
+        if debugFlag:
+
+            for path in Path(searchBy.searchDir).rglob(filter):
+                self.log.record(f"Found {path}")
+
+        all_files = [str(x) for x in Path(searchBy.searchDir).rglob(filter)] 
+
+        return all_files
+
+    def _copyDown(self,fullPathFile):
+        """Moves the selected movie files to the working directory
+        (Assumes we receive a full path)"""
+        return self._moveFile(fullPathFile,self.workingDir,"down")
+        
+
+    def convertFile(self,originalFile):
+        """Convert a specific file, uses the paths already supplied"""
+
+        workingCopy = self._copyDown(originalFile)
+        workingCopyConv = workingCopy.replace(f"{self._convertFromExt}",f"{self.convertToExt}")
+
+        try:
+            subprocess.run(['ffmpeg','-i',workingCopy,workingCopyConv])
+            self.log.record(f"Converted {workingCopy} to {workingCopyConv}")
+        except Exception as error:
+            self.log.record(f"Error occurred in moveFile function: {error}\n {workingCopy} to {workingCopyConv}")
+
+        _ = self._copyUp(workingCopyConv)
+
+
+    def _copyUp(self,fullPathFile):
+        """Moves the selected movie files from the working directory back to the original dir
+        (Assumes we receive a full path)"""
+        return self._moveFile(fullPathFile,self.searchDir,"up")
+
+    def _moveFile(self,sourceFile,toPath,direction):
+
+        if direction == "up": # have to change source to be working direction
+            alt = sourceFile.replace(f"{self.searchDir}",f"{self.workingDir}")
+            sourceFile = alt
+
+        fileName = os.path.basename(sourceFile)
+        destinationFile = F"{toPath}{os.sep}{fileName}"
+
+        if sourceFile == destinationFile:
+            self.log.record(f"Move not required {sourceFile} to {destinationFile}")
+        else:
+            try:
+                shutil.move(sourceFile,destinationFile)
+                self.log.record(f"{sourceFile} copied {direction} to {destinationFile}")
+            except Exception as error:
+                print(f"Error occurred in moveFile function: {error}\n {sourceFile} to {toPath}")
+
+        return destinationFile
+
 
 class Status():
     def __init__(self,loggingDir):
@@ -20,7 +122,7 @@ class Status():
         formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')# create a logging format
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
-        self.logger.info(f"Conversion run started for {MAX_NOS} files of type {convertTo} in {hardCodedPath}")
+        self.logger.info(f"Log file created")
 
     def record(self,message,logAsWell=True):
 
@@ -31,63 +133,6 @@ class Status():
 
         print(ct,message)
 
-
-class Direction():
-    def __init__(self,debug=False):
-        self.states = ['off','down','up']
-        self.state = self.states[0]
-        self._nos_states = len(self.states)
-        self.debug = debug
-
-    def transfer(self):
-        return self.state
-    
-    def local(self): # Startign start for local file conversion
-        self.state = 'down'
-
-    def next(self):
-
-        posIndex = self.states.index(self.state)
-        currentState = self.state
-
-        if posIndex == self._nos_states -1:
-            self.state = self.states[0]
-        else:
-            self.state = self.states[posIndex+1]
-
-        newState = self.state
-        if self.debug:
-            print(f"Moved from {currentState} to {newState}")
-
-searchExt = ".ts"
-convertTo = ".mp4"
-hardCodedPath = os.sep.join([r"Z:\Movies"])
-workingDir = os.sep.join([r"D:\Video\working"])
-loggingDir = workingDir
-localConver = True
-MAX_NOS = 8
-debugFlag = False
-fileDirection = Direction(debugFlag)
-shutDownAfter = False
-
-def checkConversionRequired(convertedFilePath):
-
-    result = True
-
-    if os.path.exists(convertedFilePath):
-        print(f"Converted version of {convertedFilePath} already exists")
-        result = False 
-
-    # check if exists in base folder
-    namePart = os.path.basename(convertedFilePath)
-    altName = f"{hardCodedPath}{os.sep}{namePart}"
-
-    if os.path.exists(altName):
-        print(f"Converted version of {altName} already exists")
-        result = False
-
-    return result
-
 def preRunCleanUp():
 
     if sys.platform.startswith('linux'):
@@ -95,14 +140,15 @@ def preRunCleanUp():
     elif sys.platform.startswith('win32'):
         os.system('cls')
 
+
     ct = datetime.datetime.now()
     sysStatus.record("Run started")
 
 def cleanEmptyDir():
 
-    for dir in next(os.walk(hardCodedPath))[1]:
+    for dir in next(os.walk(searchBy.workingDir))[1]:
 
-        fullDir = f"{hardCodedPath}{os.sep}{dir}"
+        fullDir = f"{searchBy.workingDir}{os.sep}{dir}"
         if not os.listdir(fullDir):
             os.rmdir(fullDir)
             sysStatus.record(f"Removing -{fullDir}")
@@ -111,146 +157,33 @@ def cleanEmptyDir():
             for f in os.listdir(fullDir):
                 sysStatus.record(f"\t{f}")
 
-def moveFile(sourceFile):
-
-    moveRequired = True
-    fileName = os.path.basename(sourceFile)
-    if debugFlag:
-        sysStatus.record(f"Receiving {sourceFile} with direction of {fileDirection.transfer()}")
-
-    direction = fileDirection.transfer()
-
-    if direction == "down": # hardCodedPath -> Working
-        toFile = f"{workingDir}{os.sep}{fileName}"
-
-    if direction == "up": # hardCodedPath -> Working
-        toFile = f"{hardCodedPath}{os.sep}{fileName}"
-
-    if direction== "off":
-        moveRequired = False
-        toFile = sourceFile
-
-    if moveRequired:
-        try:
-            sysStatus.record(f"Download to {toFile} in progress")
-            shutil.move(sourceFile,toFile)
-            if debugFlag:
-                sysStatus.record(f"{sourceFile} moved to {toFile}")
-        except Exception as error:
-            print(f"Error occurred in moveFile function: {error}\n {sourceFile} to {toFile}")
-
-    return toFile
-
-
-
-    # if countFolderDepth(filePath) > countFolderDepth(hardCodedPath):
-    #     fileName = os.path.basename(filePath)
-    #     newLocation = f"{hardCodedPath}{os.sep}{fileName}"
-    #     print(f"moving {filePath} to {newLocation}")
-        #
-
 def countFolderDepth(filePath):
     return str(filePath).count(os.sep)
  
-def getConversionName(originalFullFilePath):
-    # received the full path
-    # Return the name of the file resulting from the conversion
-    convertedFile = originalFullFilePath.replace(searchExt,convertTo)
-    return convertedFile
-
-def getFilePathsByType(extension = searchExt):
-    """Returns a list of all files matching (a specified file type"""
-
-    filter = f"*{searchExt}"
-
-    if debugFlag:
-
-        for path in Path(hardCodedPath).rglob(filter):
-            print(f"Found {path}")
-
-    all_files = [str(x) for x in Path(hardCodedPath).rglob(filter)]
-
-    return all_files
-
-def prepareConversion(fullFilePath):
-    # Assume that the paths are always the same, separate out the
-    # logic that the files are moved prior to conversion
-    # if it needs local copy down then do that first
-    # checknew file does already exists
-    # check if converted file already exists in current location
-    # check if converted file already exists in working location
-
-    fromFile = fullFilePath
-    
-    if localConver: 
-        fromFile = moveFile(fullFilePath)
-    
-    toFile = getConversionName(fromFile)
-
-    sysStatus.record(f"Will attempt to convert {fromFile} to {toFile}")
-    conversion(fromFile,toFile)
-
-    finalFile = toFile
-
-    if localConver: 
-        fileDirection.next()
-        finalFile = moveFile(toFile)
-        fileDirection.next()
-
-    sysStatus.record(f"Conversion resulted in {finalFile}")
-
-def conversion(sourceFile,to):
-
-    proceed=True
-
-    if os.path.exists(to):
-        print(f"Conversion not required as {to} already exist")
-        proceed=False
-        exit(1)
-
-
-    if localConver:
-        # if local have to check converted file does n't already exist at remote location
-        remoteFileCheck = f"{hardCodedPath}{os.sep}{os.path.basename(to)}"
-        if os.path.exists(remoteFileCheck):
-            print(f"Conversion not required as {remoteFileCheck} already exists")
-            proceed=False
-
-    if proceed:
-        
-        subprocess.run(['ffmpeg','-i',sourceFile,to])
-
 if __name__ == "__main__":
-  
+
+    debugFlag = True
+    shutDownAfter = False
+    workingDir=r"D:\Video\working"
     sysStatus = Status(workingDir)
+    searchBy = Search(r"Z:\Movies",workingDir,".ts",sysStatus,batchSize=1)
+    
     preRunCleanUp()
     #cleanEmptyDir()
-
-    results = getFilePathsByType(searchExt)
-    sysStatus.record(f"Only {len(results)} match the search, with the batch limit set to {MAX_NOS}")
-
-    if  len(results) > 0:
-        times = 0
-        for f in results:
-            
-            if times < MAX_NOS:
-                if localConver:
-                    fileDirection.local()
-
-                prepareConversion(f)
-                times += 1
-
-    #os.system("shutdown /s /t 1")
-    #TODO logic needs to be tested for a batch run
-    #TODO check free space before each run
-    #TODO Check file BEFORE conversion
-    #TODO Write logging to a web page ?
-    #TODO Add biggest files first /sort by size
-    #TODO specific file processing
+    results = searchBy.findFiles() #getFilePathsByType()
+    sysStatus.record(f"Only {len(results)} file(s) match(es) the search. The batch limit set to {searchBy.batchSize}")
+    sysStatus.record(f"Conversion run started for files of type {searchBy.filterCriteria} to {searchBy.convertToExt} in {searchBy.searchDir}")
+    times = 0
+    for f in results:
+        if times < searchBy.batchSize:
+            searchBy.convertFile(f)
+            times += 1
 
     sysStatus.record("Run complete")
 
     if shutDownAfter:
         os.system('shutdown -s')
+
+    sys.exit(0)
     
 
