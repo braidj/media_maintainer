@@ -3,6 +3,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
+import random
 
 
 class TimerError(Exception):
@@ -52,26 +53,30 @@ class Timer:
 
         return elapsed_time
 
+def mockDecryption(filmName):
+
+    t=Timer(filmName)
+    with t:
+        time.sleep(random.randint(1,10))
+
+
 if __name__ == "__main__":
 
-    print("In progress")
     #pass in a folder
     # work out the name of the film
     # combine and convert into mp4 in one step
 
-    t = Timer("upload")
-    with t:
-        time.sleep(1)
+    mockVideos = ['dog.ts','cat.ts','monkey.ts',"one day.ts","star wars.ts","something else.ts"]
+
+    for f in mockVideos:
+        print(f"Decrypting {f}")
+        mockDecryption(f)
+
+    # with t:
+    #     time.sleep(0)
          
-    with t:
-        time.sleep(2)
+    # with t:
+    #     time.sleep(2)
 
-    with t: 
-        time.sleep(1)
-
-    with t:
-        t = Timer("download")
-        time.sleep(2)
-
-
-    print(t.timers)
+    #print(t.timers)
+    print(Timer.timers)
