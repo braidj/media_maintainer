@@ -5,6 +5,7 @@ import subprocess
 import sys
 import logging
 import pathlib
+import argparse
 from pathlib import Path
     #os.system("shutdown /s /t 1")
     #TOOD Unit tests on core functions
@@ -140,7 +141,6 @@ def preRunCleanUp():
     elif sys.platform.startswith('win32'):
         os.system('cls')
 
-
     ct = datetime.datetime.now()
     sysStatus.record("Run started")
 
@@ -159,14 +159,31 @@ def cleanEmptyDir():
 
 def countFolderDepth(filePath):
     return str(filePath).count(os.sep)
+
+def cliParser():
+
+    parser = argparse.ArgumentParser(description='Media maintainer settings')
+    parser.add_argument("-action",type=str,default="convert",choices=['convert','tidy'],required=True,help="Action to perform")
+    args = parser.parse_args()
+
+    sysStatus.record(f"Recevied -action {args.action}")
+
  
 if __name__ == "__main__":
 
     debugFlag = True
-    shutDownAfter = False
+    shutDownAfter = True   
     workingDir=r"D:\Video\working"
-    sysStatus = Status(workingDir)
-    searchBy = Search(r"Z:\Movies",workingDir,".ts",sysStatus,batchSize=1)
+
+    sysStatus = Status(workingDir)  
+
+    cliParser()
+    BBC_HD = r"D:\Video\trimming\BBC"
+    ADVERT_MIXED =r"D:\Video\trimming\adverts"
+    NAS = r"Z:\Movies"
+    
+    # Here is where you set the values
+    searchBy = Search(BBC_HD,workingDir,".ts",sysStatus,batchSize=10)
     
     preRunCleanUp()
     #cleanEmptyDir()
@@ -180,10 +197,10 @@ if __name__ == "__main__":
             times += 1
 
     sysStatus.record("Run complete")
-
+  
     if shutDownAfter:
         os.system('shutdown -s')
 
     sys.exit(0)
-    
 
+ 
