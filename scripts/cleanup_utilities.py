@@ -16,15 +16,41 @@ testFiles = ['A Deadly Vendetta-00.04.14.039-00.24.26.359-merged-00.00.20.000-01
 'The Peanut Butter Falcon-00.03.10.746-01.27.58.199.mp4',
 'Nothing to change here.ts']
 
+
+searches = ['-\d{2}\.\d{2}\.\d{2}\.\d{3}','-merged','-cut','-\d{13}','_\d{8}_\d{4}']
 uploadDir = r"Z:\Movies"
 sourceDir = r"D:\Video\trimming\final"
+ADVERTS=r"D:\Video\trimming\adverts"
+expectedExts=['ts','mp4']
 debug=False
 
-def getFiles(folderToProcess,ext="mp4"):
+def flagFilmsToSkip(checkFolder):
+    """Check files to see if it has already been uploaded
+    If they have then rename to .ignore"""
+
+    filmLibrary = getFilmTitles(uploadDir)
+    filmsToCheck = getFilmTitles(checkFolder)
+
+    for f in filmsToCheck:
+        if f in filmLibrary:
+            print(f"Already got {f}")
+            for fExt in expectedExts:
+                if os.path.exists(f"{checkFolder}{os.sep}{f}.{fExt}"):
+                    renameFile(f"{checkFolder}{os.sep}{f}.{fExt}",f"{checkFolder}{os.sep}{f}.{fExt}.ignore")
+
+
+def getFilmTitles(checkFolder):
+    """Returns a list of just the film title, no path, extension etc"""
+
+    files = [str(x) for x in Path(checkFolder).rglob("*")]
+    libFilmFiles = list(map(os.path.basename,files)) # Remove the path
+    libFilmTitles = [os.path.splitext(x)[0] for x in libFilmFiles]
+    return libFilmTitles
+
+def getFiles(folderToProcess,filter):
     """Returns a list of files in target directory matching the desired file format"""
 
-    filter = f"*.{ext}"
-    print(f"Parsing {folderToProcess} for {ext} files")
+    print(f"Parsing {folderToProcess} for {filter} files")
 
     if debug:
         for path in Path(folderToProcess).rglob(filter):
@@ -34,14 +60,18 @@ def getFiles(folderToProcess,ext="mp4"):
 
     return all_files
 
-
 def main():
 
-    searches = ['-\d{2}\.\d{2}\.\d{2}\.\d{3}','-merged','-cut','-\d{13}','_\d{8}_\d{4}']
+    
     thisFunc = inspect.currentframe().f_code.co_name
     print(f"Running {thisFunc}")
 
-    for f in getFiles(sourceDir,"mp4"):
+    tidyFileNames(ADVERTS)
+    flagFilmsToSkip(ADVERTS)
+
+    sys.exit(0)
+
+    for f in getFiles(sourceDir,"*.mp4"):
 
         clean = f
         for search in searches:
@@ -53,6 +83,25 @@ def main():
 
         if moveFile(clean,uploadDir):
             print(f"{results[0]} uploaded to {uploadDir}")
+
+def tidyFileNames(folderToCheck):
+    """Renames the file to be just the film name plus the extension"""
+
+    filters = list(map(lambda x: "*." + x, expectedExts))
+
+    for filter in filters:
+
+        for f in getFiles(folderToCheck,filter):
+
+            clean = f
+            for search in searches:
+                clean = replace(clean,search)
+
+            if renameFile(f,clean):
+                results = list(map(os.path.basename,[f,clean]))
+                if results[0] != results[1]:
+                    print(f"Renamed: {results[0]} -> {results[1]}")
+
 
 def replace(text,pattern,replace=""):  
     """Replaces the search term"""
