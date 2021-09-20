@@ -21,6 +21,8 @@ searches = ['-\d{2}\.\d{2}\.\d{2}\.\d{3}','-merged','-cut','-\d{13}','_\d{8}_\d{
 uploadDir = r"Z:\Movies"
 sourceDir = r"D:\Video\trimming\final"
 ADVERTS=r"D:\Video\trimming\adverts"
+BBC=r"D:\Video\trimming\BBC"
+WORKING=r"D:\Video\working"
 expectedExts=['ts','mp4']
 debug=False
 
@@ -37,6 +39,8 @@ def flagFilmsToSkip(checkFolder):
             for fExt in expectedExts:
                 if os.path.exists(f"{checkFolder}{os.sep}{f}.{fExt}"):
                     renameFile(f"{checkFolder}{os.sep}{f}.{fExt}",f"{checkFolder}{os.sep}{f}.{fExt}.ignore")
+        else:
+            print(f"Checked {f}")
 
 
 def getFilmTitles(checkFolder):
@@ -66,8 +70,8 @@ def main():
     thisFunc = inspect.currentframe().f_code.co_name
     print(f"Running {thisFunc}")
 
-    tidyFileNames(ADVERTS)
-    flagFilmsToSkip(ADVERTS)
+    tidyFileNames(WORKING)
+    flagFilmsToSkip(WORKING)
 
     sys.exit(0)
 
