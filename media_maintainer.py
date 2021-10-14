@@ -14,6 +14,8 @@ from pathlib import Path
     #TODO Write logging to a web page ?
     #TODO Add biggest files first /sort by size
     #TODO Write original and new size to the log file
+    #TODO add timer so can see how long conversin takes
+    #TODO have a loop checker to kill the process if flagged.
 
 class Search():
     def __init__(self,searchDir,workingDir,searchFor,logger,convertToExt=".mp4",batchSize = 10,localConversion = True, shutDownAfter = False,DebugOn=False):
@@ -172,7 +174,7 @@ def cliParser():
 if __name__ == "__main__":
 
     debugFlag = True
-    shutDownAfter = True   
+    shutDownAfter = False   
     workingDir=r"D:\Video\working"
 
     sysStatus = Status(workingDir)  
@@ -183,7 +185,7 @@ if __name__ == "__main__":
     NAS = r"Z:\Movies"
     
     # Here is where you set the values
-    searchBy = Search(BBC_HD,workingDir,".ts",sysStatus,batchSize=10)
+    searchBy = Search(BBC_HD,workingDir,".ts",sysStatus,batchSize=5)
     
     preRunCleanUp()
     #cleanEmptyDir()
